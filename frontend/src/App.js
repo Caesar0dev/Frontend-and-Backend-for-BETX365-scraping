@@ -1,53 +1,84 @@
-// App.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { socket } from './socket';
 import axios from 'axios';
 
-function App() {
+export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [realtimedata, setRealtimedata] = useState('This is Real time data.');
-
+  const [cricketrealtimedata, setCricketRealtimedata] = useState('This is Real-time data.');
+  const [soccerrealtimedata, setSoccerRealtimedata] = useState('This is Real-time data.');
+  const [tennisrealtimedata, setTennisRealtimedata] = useState('This is Real-time data.');
+  
+  let showCricket = "";
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post('http://localhost:5000/api/login', { username, password });
-      console.log(response.data); // Token will be returned here
-      // const resData = JSON.parse(response.data);
-      const uname = response.data.data;
-      document.getElementById("responseData").innerHTML = uname;
-      // You can save the token in local storage or a cookie for authentication purposes
+      console.log(response.data.data);
+      document.getElementById("responseData").innerHTML = response.data.data;
+      // You can save the username in local storage or a cookie for authentication purposes
     } catch (error) {
       console.error(error);
     }
   };
-  const realtimeFunc = async (e) => {
-    try {
-      const response = axios.post('http://localhost:5000/skydata');
-      console.log(response);
-      setRealtimedata(response.data);
-      document.getElementById("realtimeData").innerHTML = realtimedata;
-      
-    } catch (error) {
-      console.error(error);
+
+  const [isConnected, setIsConnected] = useState(socket.connected);
+  
+
+  useEffect(() => {
+    function onConnect() {
+      setIsConnected(true);
     }
-  };
-  useEffect(()=>{
-    realtimeFunc()
-  }, [])
-  //   fetch('http://localhost:5000/skydata', {method:"POST"})
-  //     .then((response) => response)
-  //     .then((data) => {
-  //       // Handle the retrieved data
-  //       console.log(data);
-  //     })
-  //     .catch((error) => {
-  //       // Handle any errors that occurred during the request
-  //       console.error(error);
-  //     });
+
+    function onDisconnect() {
+      setIsConnected(false);
+    }
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    // Initial request for real-time data
+    socket.emit("get-skydata");
+
+    // Set up a timer to send real-time data requests every 5 seconds
+    const timerId = setInterval(() => {
+      socket.emit("get-skydata");
+    }, 5000);
+
+    // Clean up the timer when the component unmounts
+    return () => {
+      clearInterval(timerId);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.on("cricket-receive-data", (data) => {
+        console.log("data >>> ", data);
+        // Handle the received data
+        // console.log("received data >>> ", data);
+        // const stringData = [];
+        // for (const obj of data['name']) {
+        //   stringData.push(JSON.stringify(obj));
+        // }
+
+        showCricket = showCricket + JSON.stringify(data) +"\n";
+        setCricketRealtimedata(showCricket);
+        // Update UI or perform other actions based on the data
+      });
+      socket.on("soccer-receive-data", (data) => {
+        // Handle the received data
+        setSoccerRealtimedata(JSON.stringify(data))
+        // Update UI or perform other actions based on the data
+      });
+      socket.on("tennis-receive-data", (data) => {
+        // Handle the received data
+        setTennisRealtimedata(JSON.stringify(data))
+        // Update UI or perform other actions based on the data
+      });
+    };
+  }, []);
 
   return (
-    <div>
-      <h1>Login</h1>
+    <div className="App">
+      {/* <h1>Login</h1>
       <form onSubmit={handleLogin}>
         <input
           type="text"
@@ -63,11 +94,14 @@ function App() {
         />
         <button type="submit">Login</button>
       </form>
-      <p id='responseData'>Hello world!</p>
-      <p id='realtimeData'>Hello world!</p>
+      <p id='responseData'>Hello world!</p> */}
       
+      <h1>Cricket Real-time Data:</h1>
+      <p id='cricketrealtimeData'>{cricketrealtimedata}</p>
+      <h1>Soccer Real-time Data:</h1>
+      <p id='soccerrealtimeData'>{soccerrealtimedata}</p>
+      <h1>Tennis Real-time Data:</h1>
+      <p id='tennisrealtimeData'>{tennisrealtimedata}</p>
     </div>
   );
 }
-
-export default App;
